@@ -1,52 +1,50 @@
-import axios from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import { getData } from '@/services/dataService';
 import {
   getRequest,
   getSuccess,
   getFailed,
-  getError,
-  postDone,
-  doneSuccess
-} from './teacherSlice';
+  getTeacherDetailsSuccess,
+} from './teacherSlice'; // This import is now correct
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-
-export const getAllTeachers = (id: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/Teachers/${id}`);
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(getSuccess(result.data));
+/**
+ * Thunk to get all teachers for the admin
+ * Called by: ShowTeachers.tsx
+ */
+export const getAllTeachers = createAsyncThunk(
+  'teacher/getAllTeachers',
+  async (id: string, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      // Calls new backend route: /Teachers/school-id
+      const data = await getData(`/Teachers/${id}`);
+      dispatch(getSuccess(data));
+      return data;
+    } catch (error: any) {
+      const message = error.message || 'Failed to get teachers';
+      dispatch(getFailed(message));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);
 
-export const getTeacherDetails = (id: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/Teacher/${id}`);
-    if (result.data) {
-      dispatch(doneSuccess(result.data));
+/**
+ * Thunk to get details for a single teacher
+ * Called by: TeacherDetails.tsx
+ */
+export const getTeacherDetails = createAsyncThunk(
+  'teacher/getTeacherDetails',
+  async (id: string, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      // Calls new backend route: /Teacher/teacher-id
+      const data = await getData(`/Teacher/${id}`);
+      dispatch(getTeacherDetailsSuccess(data)); // This now correctly calls the reducer
+      return data;
+    } catch (error: any) {
+      const message = error.message || 'Failed to get teacher details';
+      dispatch(getFailed(message));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
-
-export const updateTeachSubject = (teacherId: string, teachSubject: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    await axios.put(`${API_BASE_URL}/TeacherSubject`, { teacherId, teachSubject }, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    dispatch(postDone());
-  } catch (error) {
-    dispatch(getError(error));
-  }
-};
+);

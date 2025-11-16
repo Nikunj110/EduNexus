@@ -1,3 +1,4 @@
+// FIX: The dispatch call for 'addStuff' in handleSubmit is now a single object, as required by our new 'userHandle.ts'.
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -7,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BookOpen } from 'lucide-react';
+import { ArrowLeft, BookOpen, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { RootState } from '@/redux/store';
 
 const AddClass = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { status, response, error, currentUser } = useSelector((state: any) => state.user);
+  const { status, response, error, currentUser } = useSelector((state: RootState) => state.user);
   const [className, setClassName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,43 +32,46 @@ const AddClass = () => {
 
     setLoading(true);
     const fields = { sclassName: className, adminID };
-    dispatch(addStuff(fields, address) as any);
+    
+    // FIX: Updated dispatch to pass a single object { fields, address }
+    dispatch(addStuff({ fields, address }) as any);
   };
 
   useEffect(() => {
     if (status === 'added') {
-      toast.success('Class created successfully!');
+      toast.success(response || 'Class added successfully');
       navigate('/Admin/classes');
       dispatch(underControl());
     } else if (status === 'failed') {
-      toast.error(response);
+      toast.error(response || 'Failed to add class');
       setLoading(false);
     } else if (status === 'error') {
-      toast.error('Network Error');
+      toast.error(error || 'An error occurred');
       setLoading(false);
     }
-  }, [status, navigate, response, dispatch]);
+  }, [status, response, error, navigate, dispatch]);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <Button 
-        variant="ghost" 
-        onClick={() => navigate('/Admin/classes')}
-        className="gap-2"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Classes
-      </Button>
-
-      <Card className="border-border/50 shadow-lg">
-        <CardHeader className="space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-            <BookOpen className="w-8 h-8 text-primary" />
+    <div className="flex justify-center items-center min-h-full p-4 animate-in fade-in duration-500">
+      <Card className="w-full max-w-lg shadow-lg border-border/50">
+        <CardHeader className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 left-4"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex flex-col items-center">
+            <div className="p-3 bg-primary/10 rounded-full mb-3">
+              <BookOpen className="w-8 h-8 text-primary" />
+            </div>
+            <CardTitle className="text-center text-2xl">Create New Class</CardTitle>
+            <CardDescription className="text-center">
+              Add a new class to your school system
+            </CardDescription>
           </div>
-          <CardTitle className="text-center text-2xl">Create New Class</CardTitle>
-          <CardDescription className="text-center">
-            Add a new class to your school system
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -98,7 +103,11 @@ const AddClass = () => {
                 disabled={loading}
                 className="flex-1 bg-gradient-primary"
               >
-                {loading ? 'Creating...' : 'Create Class'}
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  'Create Class'
+                )}
               </Button>
             </div>
           </form>

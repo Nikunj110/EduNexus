@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, GraduationCap } from 'lucide-react';
-import { loginUser } from '../redux/userRelated/userHandle';
+import { loginUser } from '@/redux/userRelated/userHandle'; 
 import { toast } from 'sonner';
 
 interface LoginPageProps {
@@ -29,71 +29,84 @@ const LoginPage = ({ role }: LoginPageProps) => {
   const [rollNumberError, setRollNumberError] = useState(false);
   const [studentNameError, setStudentNameError] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (role === "Student") {
-      const rollNum = (event.target as any).rollNumber.value;
-      const studentName = (event.target as any).studentName.value;
-      const password = (event.target as any).password.value;
+    let fields = {};
+    let email = (document.getElementById('email') as HTMLInputElement)?.value;
+    let password = (document.getElementById('password') as HTMLInputElement)?.value;
+    let rollNum = (document.getElementById('rollNumber') as HTMLInputElement)?.value;
+    let studentName = (document.getElementById('studentName') as HTMLInputElement)?.value;
 
-      if (!rollNum || !studentName || !password) {
-        if (!rollNum) setRollNumberError(true);
-        if (!studentName) setStudentNameError(true);
-        if (!password) setPasswordError(true);
-        return;
+    let formValid = true;
+
+    if (role === 'Student') {
+      if (!rollNum) {
+        setRollNumberError(true);
+        formValid = false;
+      } else {
+        setRollNumberError(false);
       }
-      const fields = { rollNum, studentName, password };
-      setLoader(true);
-      dispatch(loginUser(fields, role) as any);
+      if (!studentName) {
+        setStudentNameError(true);
+        formValid = false;
+      } else {
+        setStudentNameError(false);
+      }
     } else {
-      const email = (event.target as any).email.value;
-      const password = (event.target as any).password.value;
-
-      if (!email || !password) {
-        if (!email) setEmailError(true);
-        if (!password) setPasswordError(true);
-        return;
+      if (!email) {
+        setEmailError(true);
+        formValid = false;
+      } else {
+        setEmailError(false);
       }
-
-      const fields = { email, password };
-      setLoader(true);
-      dispatch(loginUser(fields, role) as any);
     }
-  };
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name } = event.target;
-    if (name === 'email') setEmailError(false);
-    if (name === 'password') setPasswordError(false);
-    if (name === 'rollNumber') setRollNumberError(false);
-    if (name === 'studentName') setStudentNameError(false);
+    if (!password) {
+      setPasswordError(true);
+      formValid = false;
+    } else {
+      setPasswordError(false);
+    }
+
+    if (!formValid) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (role === 'Student') {
+      fields = { rollNum, studentName, password };
+    } else {
+      fields = { email, password };
+    }
+
+    setLoader(true);
+    // This dispatch is already correct, passing a single object
+    dispatch(loginUser({ credentials: fields, role }) as any);
   };
 
   const guestModeHandler = () => {
+    setGuestLoader(true);
+    let fields = {};
     const password = "zxc";
 
     if (role === "Admin") {
       const email = "yogendra@12";
-      const fields = { email, password };
-      setGuestLoader(true);
-      dispatch(loginUser(fields, role) as any);
+      fields = { email, password };
     } else if (role === "Student") {
       const rollNum = "1";
       const studentName = "Dipesh Awasthi";
-      const fields = { rollNum, studentName, password };
-      setGuestLoader(true);
-      dispatch(loginUser(fields, role) as any);
+      fields = { rollNum, studentName, password };
     } else if (role === "Teacher") {
       const email = "tony@12";
-      const fields = { email, password };
-      setGuestLoader(true);
-      dispatch(loginUser(fields, role) as any);
+      fields = { email, password };
     }
+    // This dispatch is also correct
+    dispatch(loginUser({ credentials: fields, role }) as any);
   };
 
   useEffect(() => {
-    if (status === 'success' || currentUser !== null) {
+    if (status === 'success' && currentUser) {
       if (currentRole === 'Admin') {
         navigate('/Admin/dashboard');
       } else if (currentRole === 'Student') {
@@ -102,159 +115,105 @@ const LoginPage = ({ role }: LoginPageProps) => {
         navigate('/Teacher/dashboard');
       }
     } else if (status === 'failed') {
-      toast.error(response);
+      // Our authService already shows a detailed toast
       setLoader(false);
+      setGuestLoader(false);
     } else if (status === 'error') {
-      toast.error("Network Error");
+      // Our authService already shows a detailed toast
       setLoader(false);
       setGuestLoader(false);
     }
-  }, [status, currentRole, navigate, response, currentUser]);
-
-  if (guestLoader) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-primary/5 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
-          <p className="text-foreground text-lg">Please wait...</p>
-        </div>
-      </div>
-    );
-  }
+  }, [status, currentRole, navigate, currentUser]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 py-12 px-4">
-      <div className="container mx-auto max-w-5xl">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left Side - Branding */}
-          <div className="hidden lg:flex flex-col space-y-8 animate-in fade-in slide-in-from-left duration-700">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-3">
-                <div className="w-14 h-14 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-lg">
-                  <GraduationCap className="w-8 h-8 text-primary-foreground" />
-                </div>
-                <span className="text-2xl font-bold text-foreground">EduManage</span>
-              </div>
-              
-              <h1 className="text-4xl font-bold text-foreground leading-tight">
-                Welcome back to your
-                <span className="block text-primary mt-2">Education Hub</span>
-              </h1>
-              
-              <p className="text-lg text-muted-foreground">
-                Access your dashboard to manage classes, track progress, and collaborate with your educational community.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">Real-time Updates</h3>
-                  <p className="text-sm text-muted-foreground">Stay connected with live attendance and performance tracking</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
-                  <div className="w-2 h-2 bg-secondary rounded-full"></div>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">Secure Access</h3>
-                  <p className="text-sm text-muted-foreground">Your data is protected with enterprise-level security</p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-primary/5 p-4">
+      <div className="w-full max-w-4xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 shadow-xl border border-border/50 rounded-lg overflow-hidden">
+          {/* Left Side - Image/Branding */}
+          <div className="hidden md:flex flex-col items-center justify-center p-8 bg-gradient-hero text-primary-foreground">
+            <GraduationCap className="w-24 h-24 mb-6" />
+            <h2 className="text-3xl font-bold mb-3">EduFlow Forge</h2>
+            <p className="text-center text-primary-foreground/80">
+              Your all-in-one solution for modern school management.
+            </p>
           </div>
-
-          {/* Right Side - Login Form */}
-          <Card className="shadow-xl border-border/50 animate-in fade-in slide-in-from-right duration-700">
-            <CardHeader className="space-y-3">
-              <CardTitle className="text-3xl font-bold text-center">{role} Login</CardTitle>
-              <CardDescription className="text-center text-base">
+          
+          {/* Right Side - Form */}
+          <Card className="w-full border-0 shadow-none rounded-none">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl font-bold">
+                {role} Login
+              </CardTitle>
+              <CardDescription>
                 Welcome back! Please enter your details
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {role === "Student" ? (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {role === 'Student' ? (
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="rollNumber">Roll Number</Label>
                       <Input
                         id="rollNumber"
-                        name="rollNumber"
-                        type="number"
-                        placeholder="Enter your roll number"
-                        className={emailError ? 'border-destructive' : ''}
-                        onChange={handleInputChange}
+                        type="text"
+                        placeholder="Enter roll number"
+                        autoComplete="off"
+                        className={rollNumberError ? 'border-destructive' : ''}
                       />
-                      {rollNumberError && (
-                        <p className="text-sm text-destructive">Roll number is required</p>
-                      )}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="studentName">Full Name</Label>
+                      <Label htmlFor="studentName">Student Name</Label>
                       <Input
                         id="studentName"
-                        name="studentName"
-                        placeholder="Enter your full name"
+                        type="text"
+                        placeholder="Enter your name"
+                        autoComplete="off"
                         className={studentNameError ? 'border-destructive' : ''}
-                        onChange={handleInputChange}
                       />
-                      {studentNameError && (
-                        <p className="text-sm text-destructive">Name is required</p>
-                      )}
                     </div>
                   </>
                 ) : (
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
-                      name="email"
                       type="email"
-                      placeholder="Enter your email"
+                      placeholder="m@example.com"
+                      autoComplete="email"
                       className={emailError ? 'border-destructive' : ''}
-                      onChange={handleInputChange}
                     />
-                    {emailError && (
-                      <p className="text-sm text-destructive">Email is required</p>
-                    )}
                   </div>
                 )}
-
+                
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
                     <Input
                       id="password"
-                      name="password"
                       type={toggle ? 'text' : 'password'}
-                      placeholder="Enter your password"
-                      className={passwordError ? 'border-destructive pr-10' : 'pr-10'}
-                      onChange={handleInputChange}
+                      placeholder="Enter password"
+                      autoComplete="current-password"
+                      className={passwordError ? 'border-destructive' : ''}
                     />
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                       onClick={() => setToggle(!toggle)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
-                      {toggle ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                      {toggle ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
                   </div>
-                  {passwordError && (
-                    <p className="text-sm text-destructive">Password is required</p>
-                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Checkbox id="remember" />
-                    <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+                    <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
                       Remember me
-                    </label>
+                    </Label>
                   </div>
                   <Link to="#" className="text-sm text-primary hover:underline">
                     Forgot password?
@@ -278,8 +237,16 @@ const LoginPage = ({ role }: LoginPageProps) => {
                   className="w-full border-primary/20 hover:bg-primary/5"
                   size="lg"
                   onClick={guestModeHandler}
+                  disabled={guestLoader}
                 >
-                  Login as Guest
+                  {guestLoader ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                      Logging in as Guest...
+                    </div>
+                  ) : (
+                    'Login as Guest'
+                  )}
                 </Button>
 
                 {role === "Admin" && (

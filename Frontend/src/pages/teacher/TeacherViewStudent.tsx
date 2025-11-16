@@ -1,3 +1,4 @@
+// FIX: The dispatch for 'getUserDetails' in useEffect is now a single object { id, role }.
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,15 +7,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
-import { calculateOverallAttendancePercentage, calculateSubjectAttendancePercentage, groupAttendanceBySubject } from '@/lib/attendanceCalculator';
+import { ChevronDown, ChevronUp, Plus, ArrowLeft, User, ClipboardList, FileText } from 'lucide-react';
+import {
+  calculateOverallAttendancePercentage,
+  calculateSubjectAttendancePercentage,
+  groupAttendanceBySubject,
+} from '@/lib/attendanceCalculator';
 import CustomPieChart from '@/components/charts/CustomPieChart';
+import { RootState } from '@/redux/store';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 const TeacherViewStudent = () => {
   const navigate = useNavigate();
   const params = useParams();
   const dispatch = useDispatch();
-  const { currentUser, userDetails, loading } = useSelector((state: any) => state.user);
+  const { currentUser, userDetails, loading } = useSelector((state: RootState) => state.user);
 
   const studentID = params.id;
   const teachSubject = currentUser?.teachSubject?.subName;
@@ -24,198 +32,145 @@ const TeacherViewStudent = () => {
 
   useEffect(() => {
     if (studentID) {
-      dispatch(getUserDetails(studentID, 'Student') as any);
+      // FIX: Updated dispatch to pass a single object
+      dispatch(getUserDetails({ id: studentID, role: 'Student' }) as any);
     }
   }, [dispatch, studentID]);
 
-  const handleOpen = (subId: string) => {
-    setOpenStates((prev) => ({ ...prev, [subId]: !prev[subId] }));
+  const toggleCollapsible = (subjectName: string) => {
+    setOpenStates((prev) => ({ ...prev, [subjectName]: !prev[subjectName] }));
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+       <div className="space-y-6 animate-in fade-in duration-500">
+         <div className="flex items-center gap-4">
+           <Skeleton className="h-10 w-10" />
+           <Skeleton className="h-9 w-48" />
+         </div>
+         <Skeleton className="h-32 w-full" />
+         <Skeleton className="h-64 w-full" />
+       </div>
     );
   }
 
-  const subjectAttendance = userDetails?.attendance || [];
-  const subjectMarks = userDetails?.examResult || [];
-  const sclassName = userDetails?.sclassName?.sclassName || '';
-  const studentSchool = userDetails?.school?.schoolName || '';
-
-  const overallAttendancePercentage = calculateOverallAttendancePercentage(subjectAttendance);
-  const overallAbsentPercentage = 100 - overallAttendancePercentage;
-
-  const chartData = [
-    { name: 'Present', value: overallAttendancePercentage },
-    { name: 'Absent', value: overallAbsentPercentage },
-  ];
+  const studentAttendance = userDetails?.attendance || [];
+  const subjectAttendance = studentAttendance.filter(
+    (att: any) => att.subName.subName === teachSubject
+  );
+  const subjectAttendancePercentage = calculateSubjectAttendancePercentage(
+    subjectAttendance,
+    currentUser.teachSubject.sessions
+  );
+  
+  const subjectMarks = userDetails?.examResult?.filter(
+    (res: any) => res.subName.subName === teachSubject
+  ) || [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Student Details</h1>
-          <p className="text-muted-foreground mt-1">{userDetails?.name}</p>
-        </div>
-        <Button variant="outline" onClick={() => navigate('/Teacher/class')}>
-          Back to Class
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="w-5 h-5" />
         </Button>
+        <div>
+          <h2 className="text-3xl font-bold text-foreground">{userDetails?.name}</h2>
+          <p className="text-muted-foreground">Roll No: {userDetails?.rollNum}</p>
+        </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Student Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Name</p>
-              <p className="text-lg font-medium">{userDetails?.name}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Roll Number</p>
-              <p className="text-lg font-medium">{userDetails?.rollNum}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Class</p>
-              <p className="text-lg font-medium">{sclassName}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">School</p>
-              <p className="text-lg font-medium">{studentSchool}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+      
+      {/* Attendance Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Attendance</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5" />
+            Attendance: {teachSubject}
+          </CardTitle>
           <Button
+            size="sm"
+            className="gap-2"
             onClick={() => navigate(`/Teacher/class/student/attendance/${studentID}/${teachSubjectID}`)}
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Attendance
+            <Plus className="h-4 w-4" />
+            Mark Attendance
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {subjectAttendance && subjectAttendance.length > 0 ? (
-            <>
-              {Object.entries(groupAttendanceBySubject(subjectAttendance)).map(
-                ([subName, data]: [string, any]) => {
-                  if (subName === teachSubject) {
-                    const { present, sessions, allData, subId } = data;
-                    const percentage = calculateSubjectAttendancePercentage(present, sessions);
-
-                    return (
-                      <Collapsible
-                        key={subId}
-                        open={openStates[subId]}
-                        onOpenChange={() => handleOpen(subId)}
-                      >
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Subject</TableHead>
-                                <TableHead>Present</TableHead>
-                                <TableHead>Total Sessions</TableHead>
-                                <TableHead>Percentage</TableHead>
-                                <TableHead className="text-right">Details</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              <TableRow>
-                                <TableCell className="font-medium">{subName}</TableCell>
-                                <TableCell>{present}</TableCell>
-                                <TableCell>{sessions}</TableCell>
-                                <TableCell>{percentage}%</TableCell>
-                                <TableCell className="text-right">
-                                  <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                      {openStates[subId] ? (
-                                        <ChevronUp className="h-4 w-4" />
-                                      ) : (
-                                        <ChevronDown className="h-4 w-4" />
-                                      )}
-                                    </Button>
-                                  </CollapsibleTrigger>
-                                </TableCell>
-                              </TableRow>
-                            </TableBody>
-                          </Table>
-                          <CollapsibleContent>
-                            <div className="p-4 border-t">
-                              <h4 className="font-semibold mb-3">Attendance Details</h4>
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead className="text-right">Status</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {allData.map((record: any, index: number) => {
-                                    const date = new Date(record.date);
-                                    const dateString =
-                                      date.toString() !== 'Invalid Date'
-                                        ? date.toISOString().substring(0, 10)
-                                        : 'Invalid Date';
-                                    return (
-                                      <TableRow key={index}>
-                                        <TableCell>{dateString}</TableCell>
-                                        <TableCell className="text-right">
-                                          <span
-                                            className={
-                                              record.status === 'Present'
-                                                ? 'text-secondary font-medium'
-                                                : 'text-destructive font-medium'
-                                            }
-                                          >
-                                            {record.status}
-                                          </span>
-                                        </TableCell>
-                                      </TableRow>
-                                    );
-                                  })}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-                    );
-                  }
-                  return null;
-                }
-              )}
-              <div className="pt-4">
-                <p className="text-sm text-muted-foreground mb-2">Overall Attendance</p>
-                <p className="text-2xl font-bold mb-4">{overallAttendancePercentage.toFixed(2)}%</p>
-                <CustomPieChart data={chartData} />
-              </div>
-            </>
-          ) : (
-            <p className="text-muted-foreground text-center py-8">No attendance records found</p>
+        <CardContent>
+          <div className="text-center">
+             <div
+               className={`text-6xl font-bold ${
+                 subjectAttendancePercentage >= 75 ? "text-primary" : "text-destructive"
+               }`}
+             >
+               {subjectAttendancePercentage.toFixed(0)}%
+             </div>
+             <p className="text-muted-foreground mt-2">
+               {subjectAttendancePercentage >= 75
+                 ? "Attendance is in good standing."
+                 : "Attendance is below the 75% requirement."}
+             </p>
+          </div>
+          {subjectAttendance.length > 0 && (
+             <Collapsible className="mt-4">
+               <CollapsibleTrigger asChild>
+                 <Button variant="link" className="mx-auto flex gap-1">
+                   View Detailed History
+                   <ChevronDown className="h-4 w-4" />
+                 </Button>
+               </CollapsibleTrigger>
+               <CollapsibleContent>
+                 <div className="rounded-md border mt-2 max-h-60 overflow-y-auto">
+                   <Table>
+                     <TableHeader>
+                       <TableRow>
+                         <TableHead>Date</TableHead>
+                         <TableHead className="text-right">Status</TableHead>
+                       </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                       {subjectAttendance.map((record: any, i: number) => (
+                         <TableRow key={i}>
+                           <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                           <TableCell className="text-right">
+                             <Badge
+                               variant={
+                                 record.status === "Present"
+                                   ? "default"
+                                   : "destructive"
+                               }
+                             >
+                               {record.status}
+                             </Badge>
+                           </TableCell>
+                         </TableRow>
+                       ))}
+                     </TableBody>
+                   </Table>
+                 </div>
+               </CollapsibleContent>
+             </Collapsible>
           )}
         </CardContent>
       </Card>
-
+      
+      {/* Marks Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Subject Marks</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Marks: {teachSubject}
+          </CardTitle>
           <Button
+            size="sm"
+            className="gap-2"
             onClick={() => navigate(`/Teacher/class/student/marks/${studentID}/${teachSubjectID}`)}
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add Marks
           </Button>
         </CardHeader>
         <CardContent>
-          {subjectMarks && subjectMarks.length > 0 ? (
+          {subjectMarks.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -225,17 +180,12 @@ const TeacherViewStudent = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subjectMarks.map((result: any, index: number) => {
-                    if (result.subName?.subName === teachSubject) {
-                      return (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{result.subName.subName}</TableCell>
-                          <TableCell className="text-right">{result.marksObtained}</TableCell>
-                        </TableRow>
-                      );
-                    }
-                    return null;
-                  })}
+                  {subjectMarks.map((result: any, index: number) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{result.subName.subName}</TableCell>
+                      <TableCell className="text-right">{result.marksObtained}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>

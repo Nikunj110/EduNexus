@@ -1,147 +1,161 @@
+// FIX: This file is updated to fetch live data from Redux instead of using static placeholders.
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, BookOpen, GraduationCap, DollarSign, TrendingUp, Clock } from 'lucide-react';
+import { Users, BookOpen, GraduationCap, Bell, MessageSquare, Clock } from 'lucide-react';
+import { getAllStudents } from '@/redux/studentRelated/studentHandle';
+import { getAllTeachers } from '@/redux/teacherRelated/teacherHandle';
+import { getAllSclasses } from '@/redux/sclassRelated/sclassHandle';
+import { getAllNotices } from '@/redux/noticeRelated/noticeHandle';
+import { RootState } from '@/redux/store';
+import { Link } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 
 const AdminHomePage = () => {
   const dispatch = useDispatch();
-  const { currentUser } = useSelector((state: any) => state.user);
+  const { currentUser } = useSelector((state: RootState) => state.user);
+  const { studentsList } = useSelector((state: RootState) => state.student);
+  const { teachersList } = useSelector((state: RootState) => state.teacher);
+  const { sclassesList } = useSelector((state: RootState) => state.sclass);
+  const { noticesList } = useSelector((state: RootState) => state.notice);
 
-  // Placeholder data - replace with actual Redux calls
+  const adminID = currentUser._id;
+
+  useEffect(() => {
+    // Fetch all necessary data when the component mounts
+    dispatch(getAllStudents(adminID) as any);
+    dispatch(getAllTeachers(adminID) as any);
+    dispatch(getAllSclasses(adminID) as any);
+    dispatch(getAllNotices(adminID) as any); // FIX: Removed second 'Notice' argument
+  }, [dispatch, adminID]);
+
+  // Use the live data from Redux
   const stats = [
-    { title: 'Total Students', value: 150, icon: Users, bgColor: 'bg-primary/10', iconColor: 'text-primary', trend: '+12%' },
-    { title: 'Total Classes', value: 12, icon: BookOpen, bgColor: 'bg-secondary/10', iconColor: 'text-secondary', trend: '+2' },
-    { title: 'Total Teachers', value: 24, icon: GraduationCap, bgColor: 'bg-accent/10', iconColor: 'text-accent', trend: '+5' },
-    { title: 'Total Revenue', value: '$45,231', icon: DollarSign, bgColor: 'bg-primary/10', iconColor: 'text-primary', trend: '+8%' },
+    {
+      title: 'Total Students',
+      value: studentsList?.length || 0,
+      icon: Users,
+      bgColor: 'bg-primary/10',
+      iconColor: 'text-primary',
+    },
+    {
+      title: 'Total Classes',
+      value: sclassesList?.length || 0,
+      icon: BookOpen,
+      bgColor: 'bg-secondary/10',
+      iconColor: 'text-secondary',
+    },
+    {
+      title: 'Total Teachers',
+      value: teachersList?.length || 0,
+      icon: GraduationCap,
+      bgColor: 'bg-accent/10',
+      iconColor: 'text-accent',
+    },
+    {
+      title: 'Total Notices',
+      value: noticesList?.length || 0,
+      icon: Bell,
+      bgColor: 'bg-primary/10',
+      iconColor: 'text-primary',
+    },
   ];
 
-  const recentActivities = [
-    { action: 'New student enrolled', time: '2 minutes ago', type: 'success' },
-    { action: 'Attendance marked for Class 10A', time: '15 minutes ago', type: 'info' },
-    { action: 'New notice published', time: '1 hour ago', type: 'warning' },
-    { action: 'Teacher assigned to subject', time: '2 hours ago', type: 'success' },
+  const quickActions = [
+    { label: 'Add Student', icon: Users, href: '/Admin/students' },
+    { label: 'Add Class', icon: BookOpen, href: '/Admin/classes/add' },
+    { label: 'Add Teacher', icon: GraduationCap, href: '/Admin/teachers/chooseclass' },
+    { label: 'New Notice', icon: Clock, href: '/Admin/addnotice' },
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Welcome Section */}
-      <div className="bg-gradient-primary rounded-2xl p-8 text-primary-foreground">
-        <h2 className="text-3xl font-bold mb-2">
-          Welcome back, {currentUser?.name}!
-        </h2>
-        <p className="text-primary-foreground/80 text-lg">
-          Here's what's happening with your school today.
-        </p>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold text-foreground">Admin Dashboard</h2>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card 
-              key={index} 
-              className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-border/50"
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
-                    <Icon className={`w-6 h-6 ${stat.iconColor}`} />
-                  </div>
-                  <span className="text-sm font-medium text-secondary flex items-center gap-1">
-                    <TrendingUp className="w-4 h-4" />
-                    {stat.trend}
-                  </span>
-                </div>
-                <h3 className="text-2xl font-bold text-foreground mb-1">
-                  {stat.value}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {stat.title}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat, index) => (
+          <Card key={index} className="border-border/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {stat.title}
+              </CardTitle>
+              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
-        <Card className="border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivities.map((activity, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className={`w-2 h-2 rounded-full mt-2 ${
-                    activity.type === 'success' ? 'bg-secondary' :
-                    activity.type === 'warning' ? 'bg-accent' :
-                    'bg-primary'
-                  }`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {activity.action}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {activity.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Quick Actions */}
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Add Student', icon: Users, href: '/Admin/students/add' },
-                { label: 'Add Class', icon: BookOpen, href: '/Admin/classes/add' },
-                { label: 'Add Teacher', icon: GraduationCap, href: '/Admin/teachers/add' },
-                { label: 'New Notice', icon: Clock, href: '/Admin/notices/add' },
-              ].map((action, index) => {
+            <div className="grid grid-cols-2 gap-4">
+              {quickActions.map((action, index) => {
                 const Icon = action.icon;
                 return (
-                  <button
+                  <Link
                     key={index}
-                    className="p-4 rounded-lg border border-border hover:bg-primary/5 hover:border-primary/50 transition-all group"
+                    to={action.href}
+                    className="p-4 rounded-lg border border-border hover:bg-primary/5 hover:border-primary/50 transition-all group flex items-center gap-4"
                   >
-                    <Icon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors mb-2" />
+                    <Icon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
                     <p className="text-sm font-medium text-foreground">
                       {action.label}
                     </p>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Notices Section */}
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle>Latest Notices</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No notices to display</p>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Notices Section - Now with real data */}
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Latest Notices</CardTitle>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/Admin/notices">View All</Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {noticesList && noticesList.length > 0 ? (
+              <div className="space-y-4">
+                {/* Show top 3 recent notices */}
+                {noticesList.slice(0, 3).map((notice: any) => (
+                  <div key={notice._id} className="flex items-start gap-3">
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      <Bell className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{notice.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(notice.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">New</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Bell className="w-12 h-12 mx-auto mb-2" />
+                <p>No notices to display</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

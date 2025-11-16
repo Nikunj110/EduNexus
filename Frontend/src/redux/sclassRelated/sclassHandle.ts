@@ -1,101 +1,123 @@
-import axios from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import { getData } from '@/services/dataService';
 import {
   getRequest,
   getSuccess,
   getFailed,
-  getError,
   getStudentsSuccess,
-  detailsSuccess,
-  getFailedTwo,
   getSubjectsSuccess,
-  getSubDetailsSuccess,
-  getSubDetailsRequest
+  getSubjectDetailsSuccess,
+  getSubRequest, // <-- FIX: Import getSubRequest
+  getClassDetailsSuccess, // <-- FIX: Import getClassDetailsSuccess
 } from './sclassSlice';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-
-export const getAllSclasses = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/${address}List/${id}`);
-    if (result.data.message) {
-      dispatch(getFailedTwo(result.data.message));
-    } else {
-      dispatch(getSuccess(result.data));
+/**
+ * Thunk to get all classes
+ * Called by: ShowClasses.tsx
+ */
+export const getAllSclasses = createAsyncThunk(
+  'sclass/getAllSclasses',
+  async (id: string, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      // Calls new backend route: /SclassList/school-id
+      const data = await getData(`/SclassList/${id}`);
+      dispatch(getSuccess(data));
+      return data;
+    } catch (error: any) {
+      dispatch(getFailed(error.message || 'Failed to get classes'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);
 
-export const getClassStudents = (id: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/Sclass/Students/${id}`);
-    if (result.data.message) {
-      dispatch(getFailedTwo(result.data.message));
-    } else {
-      dispatch(getStudentsSuccess(result.data));
+/**
+ * Thunk to get details for a single class
+ * Called by: ClassDetails.tsx
+ */
+export const getClassDetails = createAsyncThunk(
+  'sclass/getClassDetails',
+  async (id: string, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      // Calls new backend route: /Sclass/class-id
+      const data = await getData(`/Sclass/${id}`);
+      // FIX 1: Use 'getClassDetailsSuccess' for a single class object
+      dispatch(getClassDetailsSuccess(data)); 
+      return data;
+    } catch (error: any) {
+      dispatch(getFailed(error.message || 'Failed to get class details'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);
 
-export const getClassDetails = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/${address}/${id}`);
-    if (result.data) {
-      dispatch(detailsSuccess(result.data));
+/**
+ * Thunk to get all students in a class
+ * Called by: ClassDetails.tsx, TeacherClassDetails.tsx
+ */
+export const getClassStudents = createAsyncThunk(
+  'sclass/getClassStudents',
+  async (id: string, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      // Calls new backend route: /Sclass/Students/class-id
+      const data = await getData(`/Sclass/Students/${id}`);
+      dispatch(getStudentsSuccess(data));
+      return data;
+    } catch (error: any) {
+      dispatch(getFailed(error.message || 'Failed to get students'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);
 
-export const getSubjectList = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/${address}/${id}`);
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(getSubjectsSuccess(result.data));
+/**
+ * Thunk to get subjects (either for a class or all subjects)
+ * Called by: ClassDetails.tsx, StudentHomePage.tsx, ShowSubjects.tsx
+ */
+export const getSubjectList = createAsyncThunk(
+  'sclass/getSubjectList',
+  async (
+    { id, address }: { id: string; address: string },
+    { dispatch }
+  ) => {
+    dispatch(getRequest());
+    try {
+      let endpoint = '';
+      if (address === 'ClassSubjects') {
+        endpoint = `/ClassSubjects/${id}`; // Gets subjects for a specific class
+      } else if (address === 'AllSubjects') {
+        endpoint = `/AllSubjects/${id}`; // Gets all subjects for the school
+      }
+      
+      const data = await getData(endpoint);
+      dispatch(getSubjectsSuccess(data));
+      return data;
+    } catch (error: any) {
+      dispatch(getFailed(error.message || 'Failed to get subjects'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);
 
-export const getTeacherFreeClassSubjects = (id: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/FreeSubjectList/${id}`);
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(getSubjectsSuccess(result.data));
+/**
+ * Thunk to get details for a single subject
+ * Called by: ViewSubject.tsx, AddTeacher.tsx
+ */
+export const getSubjectDetails = createAsyncThunk(
+  'sclass/getSubjectDetails',
+  async (id: string, { dispatch }) => {
+    // FIX 2: Use 'getSubRequest' for the separate subloading state
+    dispatch(getSubRequest()); 
+    try {
+      // Calls new backend route: /Subject/subject-id
+      const data = await getData(`/Subject/${id}`);
+      dispatch(getSubjectDetailsSuccess(data));
+      return data;
+    } catch (error: any) {
+      dispatch(getFailed(error.message || 'Failed to get subject details'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
-
-export const getSubjectDetails = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getSubDetailsRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/${address}/${id}`);
-    if (result.data) {
-      dispatch(getSubDetailsSuccess(result.data));
-    }
-  } catch (error) {
-    dispatch(getError(error));
-  }
-};
+);

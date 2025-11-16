@@ -6,23 +6,30 @@ import { deleteUser } from '@/redux/userRelated/userHandle';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { RootState } from '@/redux/store';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ShowNotices = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { toast } = useToast();
-  const { noticesList, loading, error, response } = useSelector((state: any) => state.notice);
-  const { currentUser } = useSelector((state: any) => state.user);
+  const { noticesList, loading, error, response } = useSelector((state: RootState) => state.notice);
+  const { currentUser } = useSelector((state: RootState) => state.user);
+
+  const adminID = currentUser._id;
 
   useEffect(() => {
-    dispatch(getAllNotices(currentUser._id, 'Notice') as any);
-  }, [currentUser._id, dispatch]);
+    // FIX 1: Removed the second argument 'Notice'
+    dispatch(getAllNotices(adminID) as any);
+  }, [adminID, dispatch]);
 
   const deleteHandler = (deleteID: string, address: string) => {
-    (dispatch(deleteUser(deleteID, address) as any) as any).then(() => {
-      dispatch(getAllNotices(currentUser._id, 'Notice') as any);
+    // FIX 2: Updated dispatch to pass a single object { id, address }
+    (dispatch(deleteUser({ id: deleteID, address }) as any) as any).then(() => {
+      // FIX 3: Removed the second argument 'Notice'
+      dispatch(getAllNotices(adminID) as any);
       toast({
         title: "Success",
         description: "Notice deleted successfully"
@@ -32,36 +39,46 @@ const ShowNotices = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-9 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Card className="border-border/50">
+          <CardHeader>
+            <Skeleton className="h-6 w-1/3" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-40 w-full" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Notices</h1>
-          <p className="text-muted-foreground mt-1">Manage school announcements and notices</p>
+          <h2 className="text-3xl font-bold text-foreground">Notices</h2>
+          <p className="text-muted-foreground">Manage school-wide announcements</p>
         </div>
-        <Button onClick={() => navigate('/Admin/addnotice')} className="gap-2">
-          <Plus className="h-4 w-4" />
+        <Button onClick={() => navigate('/Admin/addnotice')} className="gap-2 bg-gradient-primary">
+          <Plus className="w-4 h-4" />
           Add Notice
         </Button>
       </div>
 
-      <Card>
+      <Card className="border-border/50">
         <CardHeader>
-          <CardTitle>All Notices</CardTitle>
+          <CardTitle>Published Notices</CardTitle>
         </CardHeader>
         <CardContent>
-          {response || !noticesList || noticesList.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">No notices found</p>
-              <Button onClick={() => navigate('/Admin/addnotice')} variant="outline">
-                Add First Notice
-              </Button>
+          {noticesList.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Bell className="w-16 h-16 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-foreground mb-2">No Notices Yet</h3>
+              <p className="mb-6">Click "Add Notice" to post your first announcement</p>
             </div>
           ) : (
             <div className="rounded-md border">

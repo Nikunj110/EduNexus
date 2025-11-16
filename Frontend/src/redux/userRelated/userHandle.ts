@@ -1,109 +1,131 @@
-import axios from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
 import {
   authRequest,
-  stuffAdded,
   authSuccess,
   authFailed,
-  authError,
-  authLogout,
-  doneSuccess,
-  getDeleteSuccess,
+  stuffAdded,
   getRequest,
+  getSuccess,
   getFailed,
-  getError,
+  getDeleteSuccess, // <-- FIX: Import getDeleteSuccess
 } from './userSlice';
+import {
+  loginUser as loginService,
+  registerAdmin as registerService,
+} from '@/services/authService';
+import {
+  getData,
+  postData,
+  updateData,
+  deleteData,
+} from '@/services/dataService';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-
-export const loginUser = (fields: any, role: string) => async (dispatch: any) => {
-  dispatch(authRequest());
-
-  try {
-    const result = await axios.post(`${API_BASE_URL}/${role}Login`, fields, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (result.data.role) {
-      dispatch(authSuccess(result.data));
-    } else {
-      dispatch(authFailed(result.data.message));
+/**
+ * Thunk for user login
+ */
+export const loginUser = createAsyncThunk(
+  'user/loginUser',
+  async ({ credentials, role }: { credentials: any; role: string }, { dispatch }) => {
+    dispatch(authRequest());
+    try {
+      const data = await loginService(credentials, role);
+      // data.user and data.token are returned from the service
+      dispatch(authSuccess({ user: data.user, role: data.user.role }));
+      return data.user;
+    } catch (error: any) {
+      dispatch(authFailed(error.message || error.response?.data?.message || 'Login Failed'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(authError(error));
   }
-};
+);
 
-export const registerUser = (fields: any, role: string) => async (dispatch: any) => {
-  dispatch(authRequest());
-
-  try {
-    const result = await axios.post(`${API_BASE_URL}/${role}Reg`, fields, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (result.data.schoolName) {
-      dispatch(authSuccess(result.data));
-    } else if (result.data.school) {
-      dispatch(stuffAdded(result.data));
-    } else {
-      dispatch(authFailed(result.data.message));
+/**
+ * Thunk for admin registration
+ */
+export const registerUser = createAsyncThunk(
+  'user/registerUser',
+  async ({ fields, role }: { fields: any; role: string }, { dispatch }) => {
+    dispatch(authRequest());
+    try {
+      if (role === 'Admin') {
+        const data = await registerService(fields);
+        // FIX 1: Dispatch stuffAdded for a success message, not authSuccess
+        dispatch(stuffAdded(data.message || 'Admin registered successfully'));
+        return data;
+      }
+      // You can add logic for Student/Teacher registration here if needed
+    } catch (error: any) {
+      dispatch(authFailed(error.message || error.response?.data?.message || 'Registration Failed'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(authError(error));
   }
-};
+);
 
-export const logoutUser = () => (dispatch: any) => {
-  dispatch(authLogout());
-};
+/**
+ * Generic thunk to add new data (Class, Notice, Complain)
+ */
+export const addStuff = createAsyncThunk(
+  'user/addStuff',
+  async ({ fields, address }: { fields: any; address: string }, { dispatch }) => {
+    dispatch(authRequest()); // Use authRequest for loading state
+    try {
+      const endpointMap: { [key: string]: string } = {
+        Sclass: '/SclassCreate',
+        Notice: '/NoticeCreate',
+        Complain: '/ComplainCreate',
+        // Add other create endpoints here
+      };
 
-export const getUserDetails = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
+      const endpoint = endpointMap[address];
+      if (!endpoint) throw new Error('Invalid address for addStuff');
 
-  try {
-    const result = await axios.get(`${API_BASE_URL}/${address}/${id}`);
-    if (result.data) {
-      dispatch(doneSuccess(result.data));
+      const data = await postData(endpoint, fields);
+      
+      dispatch(stuffAdded(data.message || 'Item added successfully'));
+      return data;
+    } catch (error: any) {
+      dispatch(authFailed(error.message || error.response?.data?.message || 'Failed to add item'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);
 
-export const deleteUser = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-  dispatch(getFailed("Sorry the delete function has been disabled for now."));
-};
-
-export const updateUser = (fields: any, id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.put(`${API_BASE_URL}/${address}/${id}`, fields, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (result.data.schoolName) {
-      dispatch(authSuccess(result.data));
-    } else {
-      dispatch(doneSuccess(result.data));
+/**
+ * Thunk to get user details (Student, Teacher, Admin)
+ */
+export const getUserDetails = createAsyncThunk(
+  'user/getUserDetails',
+  async ({ id, role }: { id: string; role: string }, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      const endpoint = `/${role}/${id}`; // e.g., /Student/12345
+      const data = await getData(endpoint);
+      dispatch(getSuccess(data));
+      return data;
+    } catch (error: any) {
+      dispatch(getFailed(error.message || error.response?.data?.message || 'Failed to get details'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);
 
-export const addStuff = (fields: any, address: string) => async (dispatch: any) => {
-  dispatch(authRequest());
-
-  try {
-    const result = await axios.post(`${API_BASE_URL}/${address}Create`, fields, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (result.data.message) {
-      dispatch(authFailed(result.data.message));
-    } else {
-      dispatch(stuffAdded(result.data));
+/**
+ * Thunk to delete a user or item
+ */
+export const deleteUser = createAsyncThunk(
+  'user/deleteUser',
+  async ({ id, address }: { id: string; address: string }, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      const endpoint = `/${address}/${id}`; // e.g., /Notice/12345
+      const data = await deleteData(endpoint);
+      
+      // FIX 2: Dispatch getDeleteSuccess with the message
+      dispatch(getDeleteSuccess(data.message || 'Item deleted successfully'));
+      return data;
+    } catch (error: any) {
+      dispatch(getFailed(error.message || error.response?.data?.message || 'Failed to delete item'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(authError(error));
   }
-};
+);

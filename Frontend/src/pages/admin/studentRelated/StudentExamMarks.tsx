@@ -8,6 +8,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { updateStudentFields } from '@/redux/studentRelated/studentHandle';
 import { underStudentControl } from '@/redux/studentRelated/studentSlice';
+import { RootState } from '@/redux/store';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { toast as sonnerToast } from 'sonner';
 
 interface StudentExamMarksProps {
   situation?: string;
@@ -18,71 +21,73 @@ const StudentExamMarks = ({ situation }: StudentExamMarksProps) => {
   const navigate = useNavigate();
   const params = useParams();
   const dispatch = useDispatch();
-  const { statestatus, response, error } = useSelector((state: any) => state.student);
+  const { statestatus, response, error } = useSelector((state: RootState) => state.student);
 
   const [marks, setMarks] = useState('');
+  const [loader, setLoader] = useState(false);
 
   const studentID = params.studentID;
   const subjectID = params.subjectID;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setLoader(true);
 
-    if (!marks || isNaN(Number(marks))) {
+    if (!marks || isNaN(Number(marks)) || Number(marks) < 0 || Number(marks) > 100) {
       toast({
         title: 'Error',
-        description: 'Please enter valid marks',
+        description: 'Please enter valid marks between 0 and 100',
         variant: 'destructive',
       });
+      setLoader(false);
       return;
     }
 
-    const fields = {
-      subName: subjectID,
-      marksObtained: Number(marks),
-    };
+    const fields = { subName: subjectID, marksObtained: marks };
 
-    dispatch(updateStudentFields(studentID!, fields, 'UpdateExamResult') as any);
+    // FIX: Updated dispatch to pass a single object
+    dispatch(updateStudentFields({
+      id: studentID,
+      fields,
+      address: 'StudentExamMarks'
+    }) as any);
   };
 
   useEffect(() => {
-    if (statestatus === 'added') {
-      toast({
-        title: 'Success',
-        description: 'Marks added successfully',
-      });
+    if (statestatus === 'success') {
+      sonnerToast.success(response || 'Marks added successfully');
       navigate(-1);
       dispatch(underStudentControl());
-    } else if (response) {
+    } else if (statestatus === 'failed') {
       toast({
-        title: 'Error',
-        description: response,
-        variant: 'destructive',
+        title: "Failed",
+        description: response || "Failed to add marks",
+        variant: "destructive"
       });
-    } else if (error) {
+      setLoader(false);
+    } else if (statestatus === 'error') {
       toast({
-        title: 'Error',
-        description: 'Network Error',
-        variant: 'destructive',
+        title: "Error",
+        description: error || "An error occurred",
+        variant: "destructive"
       });
+      setLoader(false);
     }
-  }, [statestatus, response, error, navigate, toast, dispatch]);
+  }, [statestatus, response, error, navigate, dispatch, toast]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Add Exam Marks</h1>
-          <p className="text-muted-foreground mt-1">Record student exam performance</p>
-        </div>
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          Back
-        </Button>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Exam Marks Details</CardTitle>
+    <div className="flex justify-center items-center min-h-full p-4 animate-in fade-in duration-500">
+      <Card className="w-full max-w-md shadow-lg border-border/50">
+        <CardHeader className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 left-4"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <CardTitle className="text-center text-2xl pt-8">Add Exam Marks</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -96,14 +101,23 @@ const StudentExamMarks = ({ situation }: StudentExamMarksProps) => {
                 onChange={(e) => setMarks(e.target.value)}
                 min="0"
                 max="100"
+                className="h-12"
               />
               <p className="text-sm text-muted-foreground">Enter marks out of 100</p>
             </div>
 
-            <div className="flex gap-2">
-              <Button type="submit">Submit Marks</Button>
-              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+            <div className="flex gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate(-1)}
+                className="flex-1"
+              >
                 Cancel
+              </Button>
+              <Button type="submit" disabled={loader} className="flex-1 bg-gradient-primary">
+                {loader && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Submit Marks
               </Button>
             </div>
           </form>

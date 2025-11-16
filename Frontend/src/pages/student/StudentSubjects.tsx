@@ -1,3 +1,4 @@
+// FIX: The dispatch for 'getUserDetails' in useEffect is now a single object { id, role }.
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getSubjectList } from "@/redux/sclassRelated/sclassHandle";
@@ -17,7 +18,8 @@ const StudentSubjects = () => {
 
   useEffect(() => {
     if (currentUser?._id) {
-      dispatch(getUserDetails(currentUser._id, "Student") as any);
+      // FIX: Updated dispatch to pass a single object
+      dispatch(getUserDetails({ id: currentUser._id, role: "Student" }) as any);
     }
   }, [dispatch, currentUser?._id]);
 
@@ -27,102 +29,68 @@ const StudentSubjects = () => {
     }
   }, [userDetails]);
 
-  useEffect(() => {
-    if (subjectMarks.length === 0 && currentUser?.sclassName?._id) {
-      dispatch(getSubjectList(currentUser.sclassName._id, "ClassSubjects") as any);
-    }
-  }, [subjectMarks, dispatch, currentUser?.sclassName?._id]);
-
-  if (loading) {
-    return <div className="text-center py-8">Loading...</div>;
-  }
-
-  const hasMarks = subjectMarks && Array.isArray(subjectMarks) && subjectMarks.length > 0;
-
-  if (!hasMarks) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Class Details</h2>
-          <p className="text-muted-foreground">
-            You are currently in Class {sclassDetails?.sclassName}
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Subjects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {subjectsList && subjectsList.length > 0 ? (
-              <div className="space-y-2">
-                {subjectsList.map((subject: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <span className="font-medium">{subject.subName}</span>
-                    <span className="text-sm text-muted-foreground">({subject.subCode})</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-center py-4">No subjects assigned yet</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Subject Marks</h2>
-        <p className="text-muted-foreground">View your performance across subjects</p>
+        <h2 className="text-3xl font-bold tracking-tight">My Subjects & Marks</h2>
+        <p className="text-muted-foreground">View your academic performance</p>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
-          <Tabs defaultValue="table" className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-              <TabsTrigger value="table" className="flex items-center gap-2">
-                <TableIcon className="h-4 w-4" />
-                Table View
-              </TabsTrigger>
-              <TabsTrigger value="chart" className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Chart View
-              </TabsTrigger>
-            </TabsList>
+        <CardHeader>
+          <CardTitle>Exam Results</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!subjectMarks || subjectMarks.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">
+              No exam marks have been recorded yet.
+            </p>
+          ) : (
+            <Tabs defaultValue="table" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 max-w-sm mx-auto">
+                <TabsTrigger value="table" className="gap-2">
+                  <TableIcon className="h-4 w-4" />
+                  Table View
+                </TabsTrigger>
+                <TabsTrigger value="chart" className="gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Chart View
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="table" className="mt-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Subject</TableHead>
-                    <TableHead className="text-right">Marks Obtained</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {subjectMarks.map((result: any, index: number) => {
-                    if (!result.subName || !result.marksObtained) return null;
-                    return (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">
-                          {result.subName.subName}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {result.marksObtained}
-                        </TableCell>
+              <TabsContent value="table" className="mt-6">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Subject</TableHead>
+                        <TableHead className="text-right">Marks Obtained</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TabsContent>
+                    </TableHeader>
+                    <TableBody>
+                      {subjectMarks.map((result: any, index: number) => {
+                        if (!result.subName || result.marksObtained === undefined) return null;
+                        return (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">
+                              {result.subName.subName}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {result.marksObtained}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
 
-            <TabsContent value="chart" className="mt-6">
-              <CustomBarChart chartData={subjectMarks} dataKey="marksObtained" />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="chart" className="mt-6">
+                <CustomBarChart chartData={subjectMarks} dataKey="marksObtained" />
+              </TabsContent>
+            </Tabs>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,57 +1,59 @@
-import axios from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import { getData, updateData } from '@/services/dataService';
 import {
   getRequest,
   getSuccess,
   getFailed,
-  getError,
-  stuffDone
-} from './studentSlice';
+  doneSuccess,
+} from './studentSlice'; // This import is now correct
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-
-export const getAllStudents = (id: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/Students/${id}`);
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(getSuccess(result.data));
+/**
+ * Thunk to get all students for the admin
+ * Called by: ShowStudents.tsx
+ */
+export const getAllStudents = createAsyncThunk(
+  'student/getAllStudents',
+  async (id: string, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      // Calls new backend route: /Students/school-id
+      const data = await getData(`/Students/${id}`);
+      dispatch(getSuccess(data));
+      return data;
+    } catch (error: any) {
+      const message = error.message || 'Failed to get students';
+      dispatch(getFailed(message));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);
 
-export const updateStudentFields = (id: string, fields: any, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
+/**
+ * Thunk to update student fields (like attendance or marks)
+ * Called by: StudentAttendance.tsx, StudentExamMarks.tsx
+ */
+export const updateStudentFields = createAsyncThunk(
+  'student/updateStudentFields',
+  async (
+    { id, fields, address }: { id: string; fields: any; address: string },
+    { dispatch }
+  ) => {
+    dispatch(getRequest());
+    try {
+      let endpoint = '';
+      if (address === 'StudentAttendance') {
+        endpoint = `/StudentAttendance/${id}`;
+      } else if (address === 'StudentExamMarks') {
+        endpoint = `/StudentExamMarks/${id}`;
+      }
 
-  try {
-    const result = await axios.put(`${API_BASE_URL}/${address}/${id}`, fields, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(stuffDone());
+      const data = await updateData(endpoint, fields);
+      dispatch(doneSuccess(data)); // This now correctly calls the reducer
+      return data;
+    } catch (error: any) {
+      const message = error.message || 'Failed to update student';
+      dispatch(getFailed(message));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
-
-export const removeStuff = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.put(`${API_BASE_URL}/${address}/${id}`);
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(stuffDone());
-    }
-  } catch (error) {
-    dispatch(getError(error));
-  }
-};
+);

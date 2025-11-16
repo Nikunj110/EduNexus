@@ -1,4 +1,8 @@
-import axios from 'axios';
+// FIX: This file is now refactored to use createAsyncThunk and our new 'dataService'.
+// The old 'complainCreate' function has been removed, as it is now handled by 'addStuff' in userHandle.ts.
+
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import { getData } from '@/services/dataService';
 import {
   getRequest,
   getSuccess,
@@ -6,36 +10,26 @@ import {
   getError
 } from './complainSlice';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-
-export const getAllComplains = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/${address}List/${id}`);
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(getSuccess(result.data));
+/**
+ * Thunk to get all complains for the admin
+ * Called by: SeeComplains.tsx
+ */
+export const getAllComplains = createAsyncThunk(
+  'complain/getAllComplains',
+  async (id: string, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      // Calls our new backend route: /ComplainList/school-id
+      // 'getData' automatically uses our axios instance with the auth token.
+      const data = await getData(`/ComplainList/${id}`);
+      
+      dispatch(getSuccess(data));
+      return data;
+    } catch (error: any) {
+      const message = error.message || 'Failed to get complains';
+      dispatch(getFailed(message));
+      dispatch(getError(message));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
-
-export const complainCreate = (fields: any, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.post(`${API_BASE_URL}/${address}Create`, fields, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(getSuccess(result.data));
-    }
-  } catch (error) {
-    dispatch(getError(error));
-  }
-};
+);

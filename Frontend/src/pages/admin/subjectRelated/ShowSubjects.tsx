@@ -6,18 +6,21 @@ import { deleteUser } from '@/redux/userRelated/userHandle';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Eye } from 'lucide-react';
+import { Plus, Trash2, Eye, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { RootState } from '@/redux/store';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ShowSubjects = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { toast } = useToast();
-  const { subjectsList, loading, error } = useSelector((state: any) => state.sclass);
-  const { currentUser } = useSelector((state: any) => state.user);
+  const { subjectsList, loading, error } = useSelector((state: RootState) => state.sclass);
+  const { currentUser } = useSelector((state: RootState) => state.user);
 
   useEffect(() => {
-    dispatch(getSubjectList(currentUser._id, 'AllSubjects') as any);
+    // FIX: Updated dispatch to pass a single object { id, address }
+    dispatch(getSubjectList({ id: currentUser._id, address: 'AllSubjects' }) as any);
   }, [currentUser._id, dispatch]);
 
   const deleteHandler = (deleteID: string) => {
@@ -26,50 +29,52 @@ const ShowSubjects = () => {
       description: "Sorry, the delete function has been disabled for now.",
       variant: "destructive"
     });
+    // Example of correct delete dispatch (if enabled):
+    // dispatch(deleteUser({ id: deleteID, address: "Subject" }) as any);
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-9 w-48" />
+        </div>
+        <Card className="border-border/50">
+          <CardHeader>
+            <Skeleton className="h-6 w-1/3" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-40 w-full" />
+          </CardContent>
+        </Card>
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-destructive">Error loading subjects: {error}</p>
-        </CardContent>
-      </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Subjects</h1>
-          <p className="text-muted-foreground mt-1">Manage all subjects in your school</p>
+          <h2 className="text-3xl font-bold text-foreground">Subjects</h2>
+          <p className="text-muted-foreground">Manage all subjects in your school</p>
         </div>
-        <Button onClick={() => navigate('/Admin/subjects/chooseclass')} className="gap-2">
-          <Plus className="h-4 w-4" />
+        {/* Note: "Add Subject" flow usually starts with choosing a class first */}
+        {/* <Button onClick={() => navigate('/Admin/addsubject')} className="gap-2 bg-gradient-primary">
+          <Plus className="w-4 h-4" />
           Add Subject
-        </Button>
+        </Button> */}
       </div>
 
-      <Card>
+      <Card className="border-border/50">
         <CardHeader>
-          <CardTitle>All Subjects</CardTitle>
+          <CardTitle>Subject List</CardTitle>
         </CardHeader>
         <CardContent>
-          {!subjectsList || subjectsList.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">No subjects found</p>
-              <Button onClick={() => navigate('/Admin/subjects/chooseclass')} variant="outline">
-                Add First Subject
-              </Button>
+          {subjectsList.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <BookOpen className="w-16 h-16 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-foreground mb-2">No Subjects Yet</h3>
+              <p>When you add subjects to classes, they will appear here.</p>
             </div>
           ) : (
             <div className="rounded-md border">
@@ -108,7 +113,7 @@ const ShowSubjects = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))}\
                 </TableBody>
               </Table>
             </div>

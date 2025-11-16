@@ -1,7 +1,9 @@
+// FIX 1: The dispatch for 'getUserDetails' in useEffect is now a single object { id, role }.
+// FIX 2: The dispatch for 'getSubjectList' in useEffect is now a single object { id, address }.
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, FileText } from "lucide-react";
+import { BookOpen, FileText, User, CheckCircle, Percent } from "lucide-react";
 import { calculateOverallAttendancePercentage } from "@/lib/attendanceCalculator";
 import CustomPieChart from "@/components/charts/CustomPieChart";
 import { getUserDetails } from "@/redux/userRelated/userHandle";
@@ -19,46 +21,48 @@ const StudentHomePage = () => {
 
   useEffect(() => {
     if (currentUser?._id) {
-      dispatch(getUserDetails(currentUser._id, "Student") as any);
+      // FIX 1: Updated to pass a single object
+      dispatch(getUserDetails({ id: currentUser._id, role: "Student" }) as any);
     }
     if (classID) {
-      dispatch(getSubjectList(classID, "ClassSubjects") as any);
+      // FIX 2: Updated to pass a single object
+      dispatch(getSubjectList({ id: classID, address: "ClassSubjects" }) as any);
     }
   }, [dispatch, currentUser?._id, classID]);
 
   const numberOfSubjects = subjectsList?.length || 0;
 
   useEffect(() => {
-    if (userDetails) {
-      setSubjectAttendance(userDetails.attendance || []);
+    if (userDetails?.attendance) {
+      setSubjectAttendance(userDetails.attendance);
     }
   }, [userDetails]);
 
   const overallAttendancePercentage = calculateOverallAttendancePercentage(subjectAttendance);
-  const overallAbsentPercentage = 100 - overallAttendancePercentage;
-
   const chartData = [
     { name: "Present", value: overallAttendancePercentage },
-    { name: "Absent", value: overallAbsentPercentage },
+    { name: "Absent", value: 100 - overallAttendancePercentage },
   ];
 
-  if (loading) {
-    return <div className="text-center py-8">Loading...</div>;
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Welcome back!</h2>
-        <p className="text-muted-foreground">
-          Here's an overview of your academic progress
-        </p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Subjects</CardTitle>
+            <CardTitle className="text-sm font-medium">Overall Attendance</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overallAttendancePercentage.toFixed(0)}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {overallAttendancePercentage >= 75 ? "Looking Good!" : "Need to improve"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Enrolled Subjects</CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -77,7 +81,7 @@ const StudentHomePage = () => {
           <CardContent>
             <div className="text-2xl font-bold">15</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Across all subjects
+              (Placeholder)
             </p>
           </CardContent>
         </Card>
@@ -98,7 +102,45 @@ const StudentHomePage = () => {
         </Card>
       </div>
 
-      <SeeNotice />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <SeeNotice />
+        </div>
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle>Quick Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Name</p>
+                <p className="font-medium text-foreground">{currentUser?.name}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-secondary/10">
+                <CheckCircle className="w-5 h-5 text-secondary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Class</p>
+                <p className="font-medium text-foreground">{currentUser?.sclassName?.sclassName}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-accent/10">
+                <User className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Roll No.</p>
+                <p className="font-medium text-foreground">{currentUser?.rollNum}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

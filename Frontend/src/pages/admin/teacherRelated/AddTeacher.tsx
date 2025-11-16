@@ -1,15 +1,19 @@
+// FIX 1: The dispatch for 'getSubjectDetails' in useEffect is now a single 'id' argument.
+// FIX 2: The dispatch for 'registerUser' in submitHandler is now a single object { fields, role }.
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getSubjectDetails } from '@/redux/sclassRelated/sclassHandle';
 import { registerUser } from '@/redux/userRelated/userHandle';
 import { underControl } from '@/redux/userRelated/userSlice';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { RootState } from '@/redux/store';
+import { toast as sonnerToast } from 'sonner';
 
 const AddTeacher = () => {
   const params = useParams();
@@ -18,11 +22,12 @@ const AddTeacher = () => {
   const { toast } = useToast();
 
   const subjectID = params.id;
-  const { status, response, error } = useSelector((state: any) => state.user);
-  const { subjectDetails } = useSelector((state: any) => state.sclass);
+  const { status, response, error, currentUser } = useSelector((state: RootState) => state.user);
+  const { subjectDetails } = useSelector((state: RootState) => state.sclass);
 
   useEffect(() => {
-    dispatch(getSubjectDetails(subjectID, 'Subject') as any);
+    // FIX 1: Removed the second argument 'Subject'
+    dispatch(getSubjectDetails(subjectID) as any);
   }, [dispatch, subjectID]);
 
   const [name, setName] = useState('');
@@ -31,74 +36,81 @@ const AddTeacher = () => {
   const [loader, setLoader] = useState(false);
 
   const role = 'Teacher';
-  const school = subjectDetails?.school;
+  const school = currentUser._id;
   const teachSubject = subjectDetails?._id;
   const teachSclass = subjectDetails?.sclassName?._id;
 
   const submitHandler = (event: React.FormEvent) => {
     event.preventDefault();
     setLoader(true);
+
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      setLoader(false);
+      return;
+    }
+
     const fields = { name, email, password, role, school, teachSubject, teachSclass };
-    dispatch(registerUser(fields, role) as any);
+
+    // FIX 2: Updated dispatch to pass a single object { fields, role }
+    dispatch(registerUser({ fields, role: 'Teacher' }) as any);
   };
 
   useEffect(() => {
-    if (status === 'added') {
-      toast({
-        title: "Success",
-        description: "Teacher added successfully"
-      });
-      dispatch(underControl());
+    if (status === 'success') {
+      sonnerToast.success(response || 'Teacher added successfully');
       navigate('/Admin/teachers');
+      dispatch(underControl());
     } else if (status === 'failed') {
       toast({
-        title: "Error",
-        description: response,
-        variant: "destructive"
+        title: "Failed",
+        description: response || "Failed to add teacher",
+        variant: "destructive",
       });
       setLoader(false);
     } else if (status === 'error') {
       toast({
         title: "Error",
-        description: "Network Error",
-        variant: "destructive"
+        description: error || "An error occurred",
+        variant: "destructive",
       });
       setLoader(false);
     }
-  }, [status, navigate, error, response, dispatch, toast]);
+  }, [status, response, error, navigate, dispatch, toast]);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Add Teacher</h1>
-        <p className="text-muted-foreground mt-1">Assign a new teacher to a subject</p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Teacher Details</CardTitle>
+    <div className="flex justify-center items-center min-h-full p-4 animate-in fade-in duration-500">
+      <Card className="w-full max-w-lg shadow-lg border-border/50">
+        <CardHeader className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 left-4"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex flex-col items-center">
+            <div className="p-3 bg-primary/10 rounded-full mb-3">
+              <GraduationCap className="w-8 h-8 text-primary" />
+            </div>
+            <CardTitle className="text-center text-2xl">Add New Teacher</CardTitle>
+            <CardDescription className="text-center">
+              Assigning to: {subjectDetails?.subName} (Class {subjectDetails?.sclassName?.sclassName})
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submitHandler} className="space-y-4">
+          <form onSubmit={submitHandler} className="space-y-6">
             <div className="space-y-2">
-              <Label>Subject</Label>
-              <div className="p-3 bg-muted rounded-md">
-                <p className="font-medium">{subjectDetails?.subName}</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Class</Label>
-              <div className="p-3 bg-muted rounded-md">
-                <p className="font-medium">{subjectDetails?.sclassName?.sclassName}</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="name">Teacher Name</Label>
+              <Label htmlFor="name">Full Name</Label>
               <Input
                 id="name"
-                placeholder="Enter teacher name..."
+                placeholder="Enter teacher's name..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -114,7 +126,7 @@ const AddTeacher = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-              />
+                            />
             </div>
 
             <div className="space-y-2">
@@ -130,16 +142,17 @@ const AddTeacher = () => {
             </div>
 
             <div className="flex gap-4">
-              <Button type="submit" disabled={loader} className="flex-1">
-                {loader && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Add Teacher
-              </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => navigate('/Admin/teachers')}
+                className="flex-1"
               >
                 Cancel
+              </Button>
+              <Button type="submit" disabled={loader} className="flex-1 bg-gradient-primary">
+                {loader && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Add Teacher
               </Button>
             </div>
           </form>

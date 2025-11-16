@@ -6,147 +6,125 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Eye, ClipboardList, FileText } from 'lucide-react';
+import { Plus, Eye, ClipboardList, FileText, ArrowLeft, Users, BookOpen, Clock } from 'lucide-react';
+import { RootState } from '@/redux/store';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ViewSubject = () => {
   const navigate = useNavigate();
   const params = useParams();
   const dispatch = useDispatch();
-  const { subloading, subjectDetails, sclassStudents, getresponse } = useSelector((state: any) => state.sclass);
+  const { subloading, subjectDetails, sclassStudents } = useSelector((state: RootState) => state.sclass);
+  
   const { classID, subjectID } = params;
   const [selectedView, setSelectedView] = useState('attendance');
 
   useEffect(() => {
-    dispatch(getSubjectDetails(subjectID, 'Subject') as any);
+    // FIX: Removed the second argument 'Subject'
+    dispatch(getSubjectDetails(subjectID) as any);
     dispatch(getClassStudents(classID) as any);
   }, [dispatch, subjectID, classID]);
 
   if (subloading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10" />
+          <Skeleton className="h-9 w-48" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
 
-  const numberOfStudents = sclassStudents?.length || 0;
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Subject Details</h1>
-          <p className="text-muted-foreground mt-1">{subjectDetails?.subName}</p>
-        </div>
-        <Button variant="outline" onClick={() => navigate('/Admin/subjects')}>
-          Back to Subjects
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="w-5 h-5" />
         </Button>
+        <div>
+          <h2 className="text-3xl font-bold text-foreground">{subjectDetails?.subName}</h2>
+          <p className="text-muted-foreground">{subjectDetails?.sclassName?.sclassName}</p>
+        </div>
       </div>
 
-      <Tabs defaultValue="details" className="w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Subject Code</CardTitle>
+            <BookOpen className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{subjectDetails?.subCode}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+            <Users className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{sclassStudents?.length || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
+            <Clock className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{subjectDetails?.sessions}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="attendance" onValueChange={setSelectedView} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="students">Students</TabsTrigger>
+          <TabsTrigger value="attendance" className="gap-2">
+            <ClipboardList className="w-4 h-4" /> Attendance
+          </TabsTrigger>
+          <TabsTrigger value="marks" className="gap-2">
+            <FileText className="w-4 h-4" /> Marks
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="details" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Subject Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Subject Name</p>
-                  <p className="text-lg font-medium">{subjectDetails?.subName}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Subject Code</p>
-                  <p className="text-lg font-medium">{subjectDetails?.subCode}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Sessions</p>
-                  <p className="text-lg font-medium">{subjectDetails?.sessions}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Number of Students</p>
-                  <p className="text-lg font-medium">{numberOfStudents}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Class Name</p>
-                  <p className="text-lg font-medium">{subjectDetails?.sclassName?.sclassName}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Teacher</p>
-                  {subjectDetails?.teacher ? (
-                    <p className="text-lg font-medium">{subjectDetails.teacher.name}</p>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="mt-2"
-                      onClick={() => navigate(`/Admin/teachers/addteacher/${subjectDetails?._id}`)}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add Teacher
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="students" className="space-y-4">
-          {getresponse ? (
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-muted-foreground mb-4">No students found in this class</p>
-                <Button onClick={() => navigate(`/Admin/class/addstudents/${classID}`)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Students
-                </Button>
+        <TabsContent value={selectedView} className="mt-4">
+          {!sclassStudents || sclassStudents.length === 0 ? (
+            <Card className="border-border/50">
+              <CardContent className="text-center py-12 text-muted-foreground">
+                <Users className="w-16 h-16 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-foreground mb-2">No Students in Class</h3>
+                <p>Add students to this class to manage attendance and marks.</p>
               </CardContent>
             </Card>
           ) : (
             <>
-              <div className="flex gap-2 mb-4">
-                <Button
-                  variant={selectedView === 'attendance' ? 'default' : 'outline'}
-                  onClick={() => setSelectedView('attendance')}
-                  className="gap-2"
-                >
-                  <ClipboardList className="h-4 w-4" />
-                  Attendance
-                </Button>
-                <Button
-                  variant={selectedView === 'marks' ? 'default' : 'outline'}
-                  onClick={() => setSelectedView('marks')}
-                  className="gap-2"
-                >
-                  <FileText className="h-4 w-4" />
-                  Marks
-                </Button>
-              </div>
-
-              <Card>
+              <Card className="border-border/50">
                 <CardHeader>
-                  <CardTitle>Students List</CardTitle>
+                  <CardTitle>Manage {selectedView === 'attendance' ? 'Attendance' : 'Marks'}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Student Name</TableHead>
                           <TableHead>Roll No.</TableHead>
-                          <TableHead>Name</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {sclassStudents.map((student: any) => (
                           <TableRow key={student._id}>
-                            <TableCell className="font-medium">{student.rollNum}</TableCell>
-                            <TableCell>{student.name}</TableCell>
+                            <TableCell className="font-medium">{student.name}</TableCell>
+                            <TableCell>{student.rollNum}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button
@@ -160,14 +138,16 @@ const ViewSubject = () => {
                                 {selectedView === 'attendance' ? (
                                   <Button
                                     size="sm"
-                                    onClick={() => navigate(`/Admin/subject/student/attendance/${student._id}/${subjectID}`)}
+                                    variant="default"
+                                    onClick={() => navigate(`/Admin/students/student/attendance/${student._id}/${subjectID}`)}
                                   >
                                     Take Attendance
                                   </Button>
                                 ) : (
                                   <Button
                                     size="sm"
-                                    onClick={() => navigate(`/Admin/subject/student/marks/${student._id}/${subjectID}`)}
+                                    variant="default"
+                                    onClick={() => navigate(`/Admin/students/student/marks/${student._id}/${subjectID}`)}
                                   >
                                     Provide Marks
                                   </Button>

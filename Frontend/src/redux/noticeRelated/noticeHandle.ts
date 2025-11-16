@@ -1,24 +1,24 @@
-import axios from 'axios';
-import {
-  getRequest,
-  getSuccess,
-  getFailed,
-  getError
-} from './noticeSlice';
+// FIX: Changed the import from './noticeSlice.js' to './noticeSlice' to point to your new TypeScript file.
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import { getData } from '@/services/dataService';
+import { getRequest, getSuccess, getFailed } from './noticeSlice';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-
-export const getAllNotices = (id: string, address: string) => async (dispatch: any) => {
-  dispatch(getRequest());
-
-  try {
-    const result = await axios.get(`${API_BASE_URL}/${address}List/${id}`);
-    if (result.data.message) {
-      dispatch(getFailed(result.data.message));
-    } else {
-      dispatch(getSuccess(result.data));
+/**
+ * Thunk to get all notices
+ * Called by: ShowNotices.tsx, AdminHomePage.tsx
+ */
+export const getAllNotices = createAsyncThunk(
+  'notice/getAllNotices',
+  async (id: string, { dispatch }) => {
+    dispatch(getRequest());
+    try {
+      // Calls new backend route: /NoticeList/school-id
+      const data = await getData(`/NoticeList/${id}`);
+      dispatch(getSuccess(data));
+      return data;
+    } catch (error: any) {
+      dispatch(getFailed(error.message || 'Failed to get notices'));
+      throw error;
     }
-  } catch (error) {
-    dispatch(getError(error));
   }
-};
+);

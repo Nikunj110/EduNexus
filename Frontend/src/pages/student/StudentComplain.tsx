@@ -1,3 +1,4 @@
+// FIX: The dispatch call for 'addStuff' in submitHandler is now a single object, as required by our new 'userHandle.ts'.
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { addStuff } from "@/redux/userRelated/userHandle";
@@ -9,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { RootState } from "@/redux/store";
+import { underControl } from "@/redux/userRelated/userSlice";
+import { toast as sonnerToast } from "sonner";
 
 const StudentComplain = () => {
   const [complaint, setComplaint] = useState("");
@@ -17,11 +20,21 @@ const StudentComplain = () => {
 
   const dispatch = useDispatch();
   const { toast } = useToast();
-  const { status, currentUser, error } = useSelector((state: RootState) => state.user);
+  const { status, response, currentUser, error } = useSelector((state: RootState) => state.user);
 
   const submitHandler = (event: React.FormEvent) => {
     event.preventDefault();
     setLoader(true);
+
+    if (!complaint.trim() || !date) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      setLoader(false);
+      return;
+    }
 
     const fields = {
       user: currentUser._id,
@@ -30,40 +43,39 @@ const StudentComplain = () => {
       school: currentUser.school._id,
     };
 
-    dispatch(addStuff(fields, "Complain") as any);
+    // FIX: Updated dispatch to pass a single object { fields, address }
+    dispatch(addStuff({ fields, address: "Complain" }) as any);
   };
 
   useEffect(() => {
-    if (status === "added") {
-      setLoader(false);
-      toast({
-        title: "Success",
-        description: "Complaint submitted successfully",
-      });
+    if (status === 'added') {
+      sonnerToast.success(response || 'Complaint submitted successfully');
       setComplaint("");
       setDate("");
-    } else if (error) {
       setLoader(false);
+      dispatch(underControl());
+    } else if (status === 'failed') {
       toast({
-        title: "Error",
-        description: "Failed to submit complaint. Please try again.",
+        title: "Failed",
+        description: response || "Failed to submit complaint",
         variant: "destructive",
       });
+      setLoader(false);
+    } else if (status === 'error') {
+      toast({
+        title: "Error",
+        description: error || "An error occurred",
+        variant: "destructive",
+      });
+      setLoader(false);
     }
-  }, [status, error, toast]);
+  }, [status, response, error, dispatch, toast]);
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-3xl font-bold tracking-tight">Submit a Complaint</h2>
-        <p className="text-muted-foreground">
-          Let us know about any issues or concerns you have
-        </p>
-      </div>
-
+    <div className="max-w-2xl mx-auto animate-in fade-in duration-500">
       <Card>
         <CardHeader>
-          <CardTitle>Complaint Form</CardTitle>
+          <CardTitle>Submit a Complaint</CardTitle>
           <CardDescription>
             Please provide details about your complaint
           </CardDescription>
@@ -94,7 +106,7 @@ const StudentComplain = () => {
               />
             </div>
 
-            <Button type="submit" disabled={loader} className="w-full">
+            <Button type="submit" disabled={loader} className="w-full bg-gradient-primary">
               {loader ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
