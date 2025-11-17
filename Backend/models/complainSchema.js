@@ -3,8 +3,14 @@ const mongoose = require('mongoose');
 const complainSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'student',
-        required: true
+        required: true,
+        refPath: 'userType' // <-- FIX: Tells Mongoose to look at the 'userType' field
+    },
+    // ADD THIS FIELD:
+    userType: {
+        type: String,
+        required: true,
+        enum: ['student', 'teacher', 'admin'] // <-- The names of your user models
     },
     date: {
         type: Date,
