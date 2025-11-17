@@ -1,205 +1,147 @@
 const bcrypt = require('bcrypt');
 const Teacher = require('../models/teacherSchema.js');
 const Subject = require('../models/subjectSchema.js');
+const asyncHandler = require('express-async-handler');
+const ApiError = require('../utils/ApiError.js');
+const ApiResponse = require('../utils/ApiResponse.js');
 
-const teacherRegister = async (req, res) => {
+const teacherRegister = asyncHandler(async (req, res) => {
     const { name, email, password, role, school, teachSubject, teachSclass } = req.body;
-    try {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPass = await bcrypt.hash(password, salt);
 
-        const teacher = new Teacher({ name, email, password: hashedPass, role, school, teachSubject, teachSclass });
-
-        const existingTeacherByEmail = await Teacher.findOne({ email });
-
-        if (existingTeacherByEmail) {
-            res.send({ message: 'Email already exists' });
-        }
-        else {
-            let result = await teacher.save();
-            await Subject.findByIdAndUpdate(teachSubject, { teacher: teacher._id });
-            result.password = undefined;
-            res.send(result);
-        }
-    } catch (err) {
-        res.status(500).json(err);
+    if (!name || !email || !password || !school || !teachSubject || !teachSclass) {
+        throw new ApiError(400, "All fields are required");
     }
-};
 
-const teacherLogIn = async (req, res) => {
-    try {
-        let teacher = await Teacher.findOne({ email: req.body.email });
-        if (teacher) {
-            const validated = await bcrypt.compare(req.body.password, teacher.password);
-            if (validated) {
-                teacher = await teacher.populate("teachSubject", "subName sessions")
-                teacher = await teacher.populate("school", "schoolName")
-                teacher = await teacher.populate("teachSclass", "sclassName")
-                teacher.password = undefined;
-                res.send(teacher);
-            } else {
-                res.send({ message: "Invalid password" });
-            }
-        } else {
-            res.send({ message: "Teacher not found" });
-        }
-    } catch (err) {
-        res.status(500).json(err);
+    const existingTeacher = await Teacher.findOne({ email, school });
+    if (existingTeacher) {
+        throw new ApiError(409, "Email already exists in this school");
     }
-};
 
-const getTeachers = async (req, res) => {
-    try {
-        let teachers = await Teacher.find({ school: req.params.id })
-            .populate("teachSubject", "subName")
-            .populate("teachSclass", "sclassName");
-        if (teachers.length > 0) {
-            let modifiedTeachers = teachers.map((teacher) => {
-                return { ...teacher._doc, password: undefined };
-            });
-            res.send(modifiedTeachers);
-        } else {
-            res.send({ message: "No teachers found" });
-        }
-    } catch (err) {
-        res.status(500).json(err);
+    const teacher = new Teacher({ name, email, password, role, school, teachSubject, teachSclass });
+    let result = await teacher.save();
+    
+    await Subject.findByIdAndUpdate(teachSubject, { teacher: teacher._id });
+    
+    result.password = undefined;
+    res.status(201).json(new ApiResponse(201, result, "Teacher registered successfully"));
+});
+
+// DELETED teacherLogIn - This is now in auth.controller.js
+
+const getTeachers = asyncHandler(async (req, res) => {
+    const teachers = await Teacher.find({ school: req.params.id })
+        .populate("teachSubject", "subName")
+        .populate("teachSclass", "sclassName");
+
+    if (!teachers || teachers.length === 0) {
+        return res.status(200).json(new ApiResponse(200, [], "No teachers found"));
     }
-};
+    res.status(200).json(new ApiResponse(200, teachers, "Teachers retrieved successfully"));
+});
 
-const getTeacherDetail = async (req, res) => {
-    try {
-        let teacher = await Teacher.findById(req.params.id)
-            .populate("teachSubject", "subName sessions")
-            .populate("school", "schoolName")
-            .populate("teachSclass", "sclassName")
-        if (teacher) {
-            teacher.password = undefined;
-            res.send(teacher);
-        }
-        else {
-            res.send({ message: "No teacher found" });
-        }
-    } catch (err) {
-        res.status(500).json(err);
+const getTeacherDetail = asyncHandler(async (req, res) => {
+    const teacher = await Teacher.findById(req.params.id)
+        .populate("teachSubject", "subName sessions")
+        .populate("teachSclass", "sclassName")
+        .populate("school", "schoolName");
+
+    if (!teacher) {
+        throw new ApiError(404, "Teacher not found");
     }
-}
+    res.status(200).json(new ApiResponse(200, teacher, "Teacher details retrieved successfully"));
+});
 
-const updateTeacherSubject = async (req, res) => {
-    const { teacherId, teachSubject } = req.body;
-    try {
-        const updatedTeacher = await Teacher.findByIdAndUpdate(
-            teacherId,
-            { teachSubject },
-            { new: true }
-        );
-
-        await Subject.findByIdAndUpdate(teachSubject, { teacher: updatedTeacher._id });
-
-        res.send(updatedTeacher);
-    } catch (error) {
-        res.status(500).json(error);
+const deleteTeacher = asyncHandler(async (req, res) => {
+    const teacherId = req.params.id;
+    
+    const deletedTeacher = await Teacher.findByIdAndDelete(teacherId);
+    if (!deletedTeacher) {
+        throw new ApiError(404, "Teacher not found");
     }
-};
 
-const deleteTeacher = async (req, res) => {
-    try {
-        const deletedTeacher = await Teacher.findByIdAndDelete(req.params.id);
+    await Subject.updateMany({ teacher: teacherId }, { $unset: { teacher: "" } });
+    res.status(200).json(new ApiResponse(200, deletedTeacher, "Teacher deleted successfully"));
+});
 
-        await Subject.updateOne(
-            { teacher: deletedTeacher._id, teacher: { $exists: true } },
-            { $unset: { teacher: 1 } }
-        );
-
-        res.send(deletedTeacher);
-    } catch (error) {
-        res.status(500).json(error);
+const deleteTeachers = asyncHandler(async (req, res) => {
+    const schoolId = req.params.id;
+    if (req.user.role !== 'Admin' || req.user._id.toString() !== schoolId) {
+         throw new ApiError(403, "You are not authorized");
     }
-};
 
-const deleteTeachers = async (req, res) => {
-    try {
-        const deletionResult = await Teacher.deleteMany({ school: req.params.id });
+    const teachersToDelete = await Teacher.find({ school: schoolId });
+    const teacherIds = teachersToDelete.map(t => t._id);
+    const deletionResult = await Teacher.deleteMany({ school: schoolId });
 
-        const deletedCount = deletionResult.deletedCount || 0;
+    await Subject.updateMany({ teacher: { $in: teacherIds } }, { $unset: { teacher: "" } });
+    res.status(200).json(new ApiResponse(200, deletionResult, `${deletionResult.deletedCount} teachers deleted`));
+});
 
-        if (deletedCount === 0) {
-            res.send({ message: "No teachers found to delete" });
-            return;
-        }
+const deleteTeachersByClass = asyncHandler(async (req, res) => {
+    const classId = req.params.id;
 
-        const deletedTeachers = await Teacher.find({ school: req.params.id });
+    const teachersToDelete = await Teacher.find({ teachSclass: classId });
+    const teacherIds = teachersToDelete.map(t => t._id);
+    const deletionResult = await Teacher.deleteMany({ teachSclass: classId });
+    
+    await Subject.updateMany({ teacher: { $in: teacherIds } }, { $unset: { teacher: "" } });
+    res.status(200).json(new ApiResponse(200, deletionResult, `${deletionResult.deletedCount} teachers deleted from class`));
+});
 
-        await Subject.updateMany(
-            { teacher: { $in: deletedTeachers.map(teacher => teacher._id) }, teacher: { $exists: true } },
-            { $unset: { teacher: "" }, $unset: { teacher: null } }
-        );
-
-        res.send(deletionResult);
-    } catch (error) {
-        res.status(500).json(error);
+const updateTeacherSubject = asyncHandler(async (req, res) => {
+    const { teacherId, newSubjectId } = req.body;
+    
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+        throw new ApiError(404, "Teacher not found");
     }
-};
 
-const deleteTeachersByClass = async (req, res) => {
-    try {
-        const deletionResult = await Teacher.deleteMany({ sclassName: req.params.id });
-
-        const deletedCount = deletionResult.deletedCount || 0;
-
-        if (deletedCount === 0) {
-            res.send({ message: "No teachers found to delete" });
-            return;
-        }
-
-        const deletedTeachers = await Teacher.find({ sclassName: req.params.id });
-
-        await Subject.updateMany(
-            { teacher: { $in: deletedTeachers.map(teacher => teacher._id) }, teacher: { $exists: true } },
-            { $unset: { teacher: "" }, $unset: { teacher: null } }
-        );
-
-        res.send(deletionResult);
-    } catch (error) {
-        res.status(500).json(error);
+    if (teacher.teachSubject) {
+        await Subject.findByIdAndUpdate(teacher.teachSubject, { $unset: { teacher: "" } });
     }
-};
+    
+    await Subject.findByIdAndUpdate(newSubjectId, { teacher: teacherId });
+    teacher.teachSubject = newSubjectId;
+    
+    const result = await teacher.save();
+    res.status(200).json(new ApiResponse(200, result, "Teacher's subject updated"));
+});
 
-const teacherAttendance = async (req, res) => {
+const teacherAttendance = asyncHandler(async (req, res) => {
     const { status, date } = req.body;
+    const teacherId = req.params.id;
 
-    try {
-        const teacher = await Teacher.findById(req.params.id);
-
-        if (!teacher) {
-            return res.send({ message: 'Teacher not found' });
-        }
-
-        const existingAttendance = teacher.attendance.find(
-            (a) =>
-                a.date.toDateString() === new Date(date).toDateString()
-        );
-
-        if (existingAttendance) {
-            existingAttendance.status = status;
-        } else {
-            teacher.attendance.push({ date, status });
-        }
-
-        const result = await teacher.save();
-        return res.send(result);
-    } catch (error) {
-        res.status(500).json(error)
+    if (!status || !date) {
+        throw new ApiError(400, "Status and date are required");
     }
-};
+    
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+        throw new ApiError(404, "Teacher not found");
+    }
+    
+    const attendanceDate = new Date(date);
+    const existingAttendance = teacher.attendance.find(
+        (a) => a.date.toDateString() === attendanceDate.toDateString()
+    );
+
+    if (existingAttendance) {
+        existingAttendance.status = status;
+    } else {
+        teacher.attendance.push({ date: attendanceDate, status });
+    }
+
+    const result = await teacher.save();
+    res.status(200).json(new ApiResponse(200, result, "Teacher attendance marked"));
+});
 
 module.exports = {
     teacherRegister,
-    teacherLogIn,
     getTeachers,
     getTeacherDetail,
-    updateTeacherSubject,
     deleteTeacher,
-    deleteTeachers,
-    deleteTeachersByClass,
-    teacherAttendance
+    deleteTeachers, // <-- FIX: Added this line
+    deleteTeachersByClass, // <-- FIX: Added this line
+    updateTeacherSubject, // <-- FIX: Added this line
+    teacherAttendance // <-- FIX: Added this line
 };

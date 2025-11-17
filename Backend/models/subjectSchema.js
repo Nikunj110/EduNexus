@@ -10,7 +10,7 @@ const subjectSchema = new mongoose.Schema({
         required: true,
     },
     sessions: {
-        type: String,
+        type: Number, // <-- FIX: Changed from String to Number
         required: true,
     },
     sclassName: {
